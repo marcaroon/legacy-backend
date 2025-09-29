@@ -1,0 +1,208 @@
+{
+  "info": {
+    "name": "Legacy Backend API Tests",
+    "_postman_id": "12345678-aaaa-bbbb-cccc-1234567890ab",
+    "description": "Testing all endpoints for Programs, Registrations, Payments, and Referrals",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": ["{{base_url}}"],
+          "path": ["api", "health"]
+        }
+      }
+    },
+    {
+      "name": "Programs",
+      "item": [
+        {
+          "name": "Create Program",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bootcamp Fullstack\",\n  \"duration\": \"3 Months\",\n  \"price\": 5000000,\n  \"description\": \"Learn fullstack development\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/programs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "programs"]
+            }
+          }
+        },
+        {
+          "name": "Get All Programs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/programs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "programs"]
+            }
+          }
+        },
+        {
+          "name": "Get Program By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/programs/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "programs", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referral Codes",
+      "item": [
+        {
+          "name": "Create Referral Code",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PROMO50\",\n  \"discountType\": \"percent\",\n  \"discountValue\": 50,\n  \"programId\": 1,\n  \"usageLimit\": 10,\n  \"description\": \"Promo 50% untuk Bootcamp\",\n  \"expiresAt\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/referral-codes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "referral-codes"]
+            }
+          }
+        },
+        {
+          "name": "Check Referral Code",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referral_code\": \"PROMO50\",\n  \"program_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/referral/check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "referral", "check"]
+            }
+          }
+        },
+        {
+          "name": "Get Referral Usage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/referral/usage/PROMO50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "referral", "usage", "PROMO50"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Registrations",
+      "item": [
+        {
+          "name": "Create Registration",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"program_id\": 1,\n  \"contact_name\": \"Amar\",\n  \"contact_email\": \"amar@example.com\",\n  \"contact_phone\": \"08123456789\",\n  \"participants\": [\n    {\n      \"name\": \"Peserta 1\",\n      \"email\": \"peserta1@example.com\",\n      \"phone\": \"08123456780\",\n      \"referral_code\": \"PROMO50\"\n    },\n    {\n      \"name\": \"Peserta 2\",\n      \"email\": \"peserta2@example.com\",\n      \"phone\": \"08123456781\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get Registration By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/registration/REG-123456",
+              "host": ["{{base_url}}"],
+              "path": ["api", "registration", "REG-123456"]
+            }
+          }
+        },
+        {
+          "name": "Get All Registrations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/registrations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "registrations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Handle Payment Notification (simulate Midtrans)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ORDER-1-123456\",\n  \"transaction_status\": \"settlement\",\n  \"fraud_status\": \"accept\",\n  \"transaction_id\": \"T123456789\",\n  \"payment_type\": \"credit_card\",\n  \"gross_amount\": \"5000000\",\n  \"status_code\": \"200\",\n  \"signature_key\": \"dummy\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payment/notification",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payment", "notification"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/payment/status/REG-123456",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payment", "status", "REG-123456"]
+            }
+          }
+        },
+        {
+          "name": "Check Payment Status (manual sync)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/payment/check/REG-123456",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payment", "check", "REG-123456"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    }
+  ]
+}

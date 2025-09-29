@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique(map: "User_username_key")
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user")
+}
+
+model Program {
+  id               Int            @id @default(autoincrement())
+  title            String
+  duration         String
+  price            Int
+  description      String?        @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  earlyBirdEndDate DateTime?      @map("early_bird_end_date")
+  earlyBirdPrice   Int?           @map("early_bird_price")
+  isActive         Boolean        @default(true) @map("is_active")
+  referralCodes    ReferralCode[]
+  registrations    Registration[]
+
+  @@map("programs")
+}
+
+model Registration {
+  id                    Int           @id @default(autoincrement())
+  registrationId        String        @unique @map("registration_id")
+  programId             Int           @map("program_id")
+  contactName           String        @map("contact_name")
+  contactEmail          String        @map("contact_email")
+  contactPhone          String        @map("contact_phone")
+  totalParticipants     Int           @map("total_participants")
+  totalAmount           Int           @map("total_amount")
+  paymentStatus         PaymentStatus @default(pending) @map("payment_status")
+  paymentUrl            String?       @map("payment_url")
+  midtransOrderId       String?       @map("midtrans_order_id")
+  midtransTransactionId String?       @map("midtrans_transaction_id")
+  paymentType           String?       @map("payment_type")
+  paidAt                DateTime?     @map("paid_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  usedEarlyBird         Boolean       @default(false) @map("used_early_bird")
+  participants          Participant[]
+  paymentLogs           PaymentLog[]
+  program               Program       @relation(fields: [programId], references: [id])
+
+  @@index([programId], map: "registrations_program_id_fkey")
+  @@map("registrations")
+}
+
+model Participant {
+  id             Int          @id @default(autoincrement())
+  registrationId Int          @map("registration_id")
+  name           String
+  email          String
+  phone          String
+  referralCode   String?      @map("referral_code")
+  discountAmount Int          @default(0) @map("discount_amount")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId], map: "participants_registration_id_fkey")
+  @@map("participants")
+}
+
+model ReferralCode {
+  id            Int                    @id @default(autoincrement())
+  code          String                 @unique
+  discountType  DiscountType           @map("discount_type")
+  discountValue Int                    @map("discount_value")
+  programId     Int?                   @map("program_id")
+  status        ReferralStatus         @default(active)
+  usageLimit    Int?                   @map("usage_limit")
+  usedCount     Int                    @default(0) @map("used_count")
+  description   String?                @db.Text
+  validFrom     DateTime?              @map("valid_from")
+  validUntil    DateTime?              @map("valid_until")
+  isActive      Boolean                @default(true) @map("is_active")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+  expiresAt     DateTime?              @map("expires_at")
+  program       Program?               @relation(fields: [programId], references: [id])
+  usageHistory  ReferralUsageHistory[]
+
+  @@index([programId], map: "referral_codes_program_id_fkey")
+  @@map("referral_codes")
+}
+
+model ReferralUsageHistory {
+  id             Int          @id @default(autoincrement())
+  referralCodeId Int          @map("referral_code_id")
+  referralCode   String       @map("referral_code")
+  registrationId Int          @map("registration_id")
+  discountAmount Int          @map("discount_amount")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  referral       ReferralCode @relation(fields: [referralCodeId], references: [id])
+
+  @@index([referralCodeId], map: "referral_usage_history_referral_code_id_fkey")
+  @@map("referral_usage_history")
+}
+
+model PaymentLog {
+  id                Int           @id @default(autoincrement())
+  orderId           String        @map("order_id")
+  transactionStatus String        @map("transaction_status")
+  fraudStatus       String?       @map("fraud_status")
+  mappedStatus      String        @map("mapped_status")
+  notificationData  Json          @map("notification_data")
+  registrationId    Int?          @map("registration_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  registration      Registration? @relation(fields: [registrationId], references: [id])
+
+  @@index([registrationId], map: "payment_logs_registration_id_fkey")
+  @@map("payment_logs")
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  cancelled
+  expired
+}
+
+enum DiscountType {
+  fixed
+  percent
+  percentage
+}
+
+enum ReferralStatus {
+  active
+  inactive
+  expired
+}
