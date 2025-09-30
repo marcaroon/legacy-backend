@@ -15,6 +15,8 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:5173",
   "https://a5e00b954176.ngrok-free.app",
+  "https://app.sandbox.midtrans.com",
+  "https://panapi.sandbox.midtrans.com",
 ];
 
 const corsOptions = {

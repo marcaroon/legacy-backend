@@ -69,7 +69,6 @@ class RegistrationService {
     });
   }
 
-  // Membuat registrasi baru
   async createRegistration(registrationData) {
     try {
       return await prisma.$transaction(async (tx) => {
@@ -81,7 +80,6 @@ class RegistrationService {
           participants,
         } = registrationData;
 
-        // validasi program exists
         const program = await tx.program.findUnique({
           where: { id: program_id },
         });
@@ -161,10 +159,8 @@ class RegistrationService {
           }
         }
 
-        // Buat Midtrans transaction
         const midtransOrderId = `ORDER-${registration.id}-${Date.now()}`;
 
-        // Item details (per peserta + diskon)
         const item_details = participants.map((p, i) => ({
           id: `${program_id}-P${i + 1}`,
           price: activePrice,
@@ -198,9 +194,9 @@ class RegistrationService {
           },
           item_details,
           callbacks: {
-            finish: `${process.env.FRONTEND_URL}/payment/success/${registrationId}`,
-            error: `${process.env.FRONTEND_URL}/payment/error/${registrationId}`,
-            pending: `${process.env.FRONTEND_URL}/payment/pending/${registrationId}`,
+            finish: `${process.env.LANDING_FRONTEND_URL}/payment/status/${registrationId}`,
+            error: `${process.env.LANDING_FRONTEND_URL}/payment/status/${registrationId}`,
+            pending: `${process.env.LANDING_FRONTEND_URL}/payment/status/${registrationId}`,
           },
           expiry: {
             start_time: formatMidtransTime(),
@@ -212,6 +208,7 @@ class RegistrationService {
           custom_field3: `Participants-${participants.length}`,
         };
         console.log();
+        console.log("landing url env: ", process.env.LANDING_FRONTEND_URL);
 
         console.log(
           "Creating Midtrans transaction with parameter:",
@@ -222,7 +219,6 @@ class RegistrationService {
 
         console.log("Midtrans transaction created:", transaction);
 
-        // Update registrasi dengan total, payment URL dan order ID
         await tx.registration.update({
           where: { id: registration.id },
           data: {
@@ -232,7 +228,6 @@ class RegistrationService {
           },
         });
 
-        // === Tambahkan log awal ke payment_logs ===
         await tx.paymentLog.create({
           data: {
             orderId: midtransOrderId,
