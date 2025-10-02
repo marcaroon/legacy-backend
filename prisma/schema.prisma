@@ -68,6 +68,7 @@ model Participant {
   name           String
   email          String
   phone          String
+  city           String?  
   referralCode   String?      @map("referral_code")
   discountAmount Int          @default(0) @map("discount_amount")
   createdAt      DateTime     @default(now()) @map("created_at")

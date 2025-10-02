@@ -280,7 +280,6 @@ class ReferralController {
         "isActive",
       ];
 
-      // Only include fields that are provided
       allowedFields.forEach((field) => {
         if (req.body[field] !== undefined) {
           if (field === "code" && req.body[field]) {

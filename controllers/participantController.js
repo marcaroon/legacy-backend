@@ -2,14 +2,12 @@ const participantService = require("../services/participantService");
 const ExcelJS = require("exceljs");
 
 class ParticipantController {
-  // GET /api/participants
   static async getAllParticipants(req, res) {
     try {
       const filters = {
         registration_id: req.query.registration_id,
       };
 
-      // Hapus nilai kosong/null
       Object.keys(filters).forEach((key) => {
         if (!filters[key]) {
           delete filters[key];
@@ -95,7 +93,6 @@ class ParticipantController {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Participants");
 
-      // Set column headers
       worksheet.columns = [
         { header: "ID", key: "id", width: 8 },
         { header: "Registration ID", key: "registrationId", width: 20 },
@@ -103,6 +100,7 @@ class ParticipantController {
         { header: "Full Name", key: "name", width: 25 },
         { header: "Email", key: "email", width: 30 },
         { header: "Phone", key: "phone", width: 18 },
+        { header: "City", key: "city", width: 20 },
         { header: "Referral Code", key: "referralCode", width: 15 },
         { header: "Discount Amount (Rp)", key: "discountAmount", width: 18 },
         { header: "Registration Date", key: "createdAt", width: 20 },
@@ -116,7 +114,6 @@ class ParticipantController {
         fgColor: { argb: "FFE6F3FF" },
       };
 
-      // Add data rows
       participants.forEach((participant) => {
         worksheet.addRow({
           id: participant.id,
@@ -125,6 +122,7 @@ class ParticipantController {
           name: participant.name,
           email: participant.email,
           phone: participant.phone,
+          city: participant.city || "-",
           referralCode: participant.referralCode || "-",
           discountAmount: participant.discountAmount || 0,
           createdAt: new Date(participant.createdAt).toLocaleString("id-ID"),

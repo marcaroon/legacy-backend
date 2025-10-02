@@ -60,6 +60,9 @@ class RegistrationController {
           if (!participant.phone || !participant.phone.trim()) {
             validationErrors.push(`participant[${index}].phone is required`);
           }
+          if (!participant.city || !participant.city.trim()) {
+            validationErrors.push(`participant[${index}].city is required`);
+          }
         });
       }
 
@@ -80,6 +83,7 @@ class RegistrationController {
           name: p.name.trim(),
           email: p.email.trim().toLowerCase(),
           phone: p.phone.trim(),
+          city: p.city.trim(),
           referral_code: p.referral_code
             ? p.referral_code.trim().toUpperCase()
             : null,
@@ -103,7 +107,6 @@ class RegistrationController {
     } catch (error) {
       console.error("Error in createRegistration:", error);
 
-      // Handle specific error types
       let statusCode = 500;
       let message = "Failed to create registration";
 
@@ -137,7 +140,6 @@ class RegistrationController {
     }
   }
 
-  // GET /api/registration/:registrationId
   static async getRegistrationById(req, res) {
     try {
       const { registrationId } = req.params;
@@ -148,7 +150,6 @@ class RegistrationController {
           message: "Registration ID is required",
         });
       }
-
 
       const registration = await registrationService.getRegistrationById(
         registrationId

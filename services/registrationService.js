@@ -140,6 +140,7 @@ class RegistrationService {
             name: participant.name,
             email: participant.email,
             phone: participant.phone,
+            city: participant.city || null,
             referralCode: referralCode,
             discountAmount: discount,
           });
