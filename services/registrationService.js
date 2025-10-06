@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require("uuid");
 const midtransClient = require("midtrans-client");
 const crypto = require("crypto");
 const ReferralService = require("./referralService");
+const { sendConfirmationEmail } = require("../utils/emailService");
 
 function formatMidtransTime(date = new Date()) {
   const pad = (n) => (n < 10 ? "0" + n : n);
@@ -18,6 +19,8 @@ function formatMidtransTime(date = new Date()) {
 async function validateReferralCode(code, price) {
   if (!code) return { valid: false, discount: 0 };
 
+  console.log(`Validating referral code: ${code} for price: ${price}`)
+
   const referral = await prisma.referralCode.findFirst({
     where: {
       code: code,
@@ -32,6 +35,7 @@ async function validateReferralCode(code, price) {
   });
 
   if (!referral) {
+    console.log(`Referral code ${code} not found or inactive`);
     return { valid: false, discount: 0 };
   }
 
@@ -45,7 +49,8 @@ async function validateReferralCode(code, price) {
     discount = Math.floor((price * referral.discountValue) / 100);
   }
 
-  // Update usage count
+  console.log(`Discount calculated: ${discount} for code ${code}`);
+
   await prisma.referralCode.update({
     where: { id: referral.id },
     data: { usedCount: { increment: 1 } },
@@ -56,13 +61,11 @@ async function validateReferralCode(code, price) {
 
 class RegistrationService {
   constructor() {
-    // Inisialisasi Midtrans Snap
     this.snap = new midtransClient.Snap({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
       serverKey: process.env.MIDTRANS_SERVER_KEY,
     });
 
-    // Inisialisasi Core API untuk checking status
     this.coreApi = new midtransClient.CoreApi({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
       serverKey: process.env.MIDTRANS_SERVER_KEY,
@@ -117,24 +120,20 @@ class RegistrationService {
           },
         });
 
-        let totalAmount = 0;
+        let subtotal = 0;
         const participantData = [];
-
         for (const participant of participants) {
-          let discount = 0;
+          let discount = participant.discount_amount || 0;
           let referralCode = participant.referral_code || null;
-
-          if (referralCode) {
+          if (referralCode && discount === 0) {
             const result = await validateReferralCode(
               referralCode,
               activePrice
             );
             discount = result.discount;
           }
-
           participant.discount_amount = discount;
-          totalAmount += activePrice - discount;
-
+          subtotal += activePrice - discount;
           participantData.push({
             registrationId: registration.id,
             name: participant.name,
@@ -145,6 +144,9 @@ class RegistrationService {
             discountAmount: discount,
           });
         }
+
+        const ppn = Math.round(subtotal * 0.11);
+        const totalAmount = subtotal + ppn;
 
         await tx.participant.createMany({
           data: participantData,
@@ -172,14 +174,28 @@ class RegistrationService {
         }));
 
         participants.forEach((p, i) => {
-          if (p.discount_amount > 0) {
+          const discountAmount = p.discount_amount || 0;
+          // console.log(`Checking discount for Peserta ${i + 1}:`, {
+          //   referral_code: p.referral_code,
+          //   discount_amount: discountAmount,
+          // });
+
+          if (discountAmount > 0) {
             item_details.push({
               id: `DISC-P${i + 1}`,
-              price: -p.discount_amount,
+              price: -discountAmount,
               quantity: 1,
-              name: `Referral Discount (Peserta ${i + 1})`,
+              name: `Referral Discount - ${p.referral_code}`,
             });
           }
+        });
+
+        item_details.push({
+          id: "PPN",
+          price: ppn,
+          quantity: 1,
+          name: "PPN 11%",
+          category: "Tax",
         });
 
         const parameter = {
@@ -208,8 +224,6 @@ class RegistrationService {
           custom_field2: `Training-${program.title}`,
           custom_field3: `Participants-${participants.length}`,
         };
-        console.log();
-        console.log("landing url env: ", process.env.LANDING_FRONTEND_URL);
 
         console.log(
           "Creating Midtrans transaction with parameter:",
@@ -219,6 +233,17 @@ class RegistrationService {
         const transaction = await this.snap.createTransaction(parameter);
 
         console.log("Midtrans transaction created:", transaction);
+        console.log("Subtotal:", subtotal);
+        console.log(
+          "Total diskon:",
+          participants.reduce((a, b) => a + b.discount_amount, 0)
+        );
+        console.log("PPN:", ppn);
+        console.log("TotalAmount:", totalAmount);
+        console.log(
+          "Sum item_details:",
+          item_details.reduce((a, b) => a + b.price * b.quantity, 0)
+        );
 
         await tx.registration.update({
           where: { id: registration.id },
@@ -328,7 +353,6 @@ class RegistrationService {
         JSON.stringify(notification, null, 2)
       );
 
-      // Validasi signature untuk keamanan
       if (!this.validateNotificationSignature(notification)) {
         throw new Error("Invalid notification signature");
       }
@@ -342,7 +366,6 @@ class RegistrationService {
         gross_amount,
       } = notification;
 
-      // Mapping status dari Midtrans
       const paymentStatus = this.mapPaymentStatus(
         transaction_status,
         fraud_status
@@ -352,7 +375,6 @@ class RegistrationService {
         `Payment status for ${order_id}: ${transaction_status} (fraud: ${fraud_status}) -> ${paymentStatus}`
       );
 
-      // Update status pembayaran
       const updateData = {
         paymentStatus,
         midtransTransactionId: transaction_id,
@@ -376,11 +398,24 @@ class RegistrationService {
         data: updateData,
       });
 
+      if (paymentStatus === "paid") {
+        const participants = await prisma.participant.findMany({
+          where: { registrationId: reg.id },
+        });
+      
+        for (const participant of participants) {
+          try {
+            await sendConfirmationEmail(participant);
+          } catch (err) {
+            console.error(`Failed to send email to ${participant.email}:`, err);
+          }
+        }
+      }
+
       if (!registration) {
         throw new Error(`Registration not found for order_id: ${order_id}`);
       }
 
-      // Log untuk tracking ke payment_logs
       await prisma.paymentLog.create({
         data: {
           orderId: order_id,
@@ -426,7 +461,6 @@ class RegistrationService {
     }
   }
 
-  // Mapping status Midtrans
   mapPaymentStatus(midtransStatus, fraudStatus = null) {
     switch (midtransStatus) {
       case "capture":
@@ -440,7 +474,6 @@ class RegistrationService {
       case "expire":
       case "failure":
         return "failed";
-      // TAMBAHKAN ini:
       case "cancelled":
         return "cancelled";
       case "expired":
@@ -450,7 +483,6 @@ class RegistrationService {
     }
   }
 
-  // Log payment notification untuk debugging
   async logPaymentNotification(
     notification,
     mappedStatus,
@@ -474,7 +506,6 @@ class RegistrationService {
     }
   }
 
-  // Check status transaksi dari Midtrans
   async checkTransactionStatus(orderId) {
     try {
       const statusResponse = await this.coreApi.transaction.status(orderId);
@@ -493,10 +524,8 @@ class RegistrationService {
     }
   }
 
-  // Cancel transaction
   async cancelTransaction(orderId) {
     try {
-      // Cari registrasi dulu
       const registration = await prisma.registration.findFirst({
         where: { midtransOrderId: orderId },
         include: { participants: true },
@@ -506,15 +535,12 @@ class RegistrationService {
         throw new Error(`Registration not found for orderId: ${orderId}`);
       }
 
-      // Kalau masih pending, hapus registrasi & peserta
       if (registration.paymentStatus === "pending") {
-        // Kurangi usageCount untuk setiap referral code yang digunakan
         const participantsWithReferral = registration.participants.filter(
           (p) => p.referralCode
         );
 
         for (const participant of participantsWithReferral) {
-          // Kurangi usageCount
           await prisma.referralCode
             .update({
               where: { code: participant.referralCode },
@@ -527,7 +553,6 @@ class RegistrationService {
               );
             });
 
-          // Hapus riwayat referral usage
           await prisma.referralUsageHistory
             .deleteMany({
               where: {
@@ -556,7 +581,6 @@ class RegistrationService {
         };
       }
 
-      // setelah hapus registrasi & participants
       // if (registration.referralCode) {
       //   // Kurangi kembali usedCount
       //   await prisma.referralCode.update({
@@ -570,7 +594,6 @@ class RegistrationService {
       //   });
       // }
 
-      // Kalau sudah ada status lain (misal paid/expired), update saja
       const cancelResponse = await this.coreApi.transaction.cancel(orderId);
       await prisma.registration.update({
         where: { id: registration.id },
@@ -605,17 +628,14 @@ class RegistrationService {
     try {
       const whereClause = {};
 
-      // Filter berdasarkan status pembayaran
       if (filters.payment_status) {
         whereClause.paymentStatus = filters.payment_status;
       }
 
-      // Filter berdasarkan program
       if (filters.program_id) {
         whereClause.programId = parseInt(filters.program_id);
       }
 
-      // Filter berdasarkan tanggal
       if (filters.start_date || filters.end_date) {
         whereClause.createdAt = {};
         if (filters.start_date) {
@@ -636,14 +656,12 @@ class RegistrationService {
         orderBy: { createdAt: "desc" },
       };
 
-      // Limit hasil jika ada
       if (filters.limit) {
         queryOptions.take = parseInt(filters.limit);
       }
 
       const registrations = await prisma.registration.findMany(queryOptions);
 
-      // Transform data untuk konsistensi dengan response lama
       return registrations.map((reg) => ({
         ...reg,
         program_title: reg.program.title,
@@ -654,12 +672,10 @@ class RegistrationService {
     }
   }
 
-  // Get registration statistics
   async getRegistrationStats(filters = {}) {
     try {
       const whereClause = {};
 
-      // Filter tanggal untuk semua query
       if (filters.start_date && filters.end_date) {
         whereClause.createdAt = {
           gte: new Date(filters.start_date),
@@ -667,12 +683,10 @@ class RegistrationService {
         };
       }
 
-      // Total registrations
       const totalRegistrations = await prisma.registration.count({
         where: whereClause,
       });
 
-      // Registrations by status
       const statusCounts = await prisma.registration.groupBy({
         by: ["paymentStatus"],
         where: whereClause,
@@ -684,14 +698,13 @@ class RegistrationService {
         return acc;
       }, {});
 
-      // Total revenue (paid registrations only)
       const revenueWhere = { ...whereClause, paymentStatus: "paid" };
       if (filters.start_date && filters.end_date) {
         revenueWhere.paidAt = {
           gte: new Date(filters.start_date),
           lte: new Date(filters.end_date),
         };
-        delete revenueWhere.createdAt; // Use paidAt instead for revenue
+        delete revenueWhere.createdAt;
       }
 
       const revenueResult = await prisma.registration.aggregate({
@@ -701,7 +714,6 @@ class RegistrationService {
 
       const totalRevenue = revenueResult._sum.totalAmount || 0;
 
-      // Popular programs
       const popularPrograms = await prisma.registration.groupBy({
         by: ["programId"],
         where: whereClause,
@@ -710,7 +722,6 @@ class RegistrationService {
         take: 5,
       });
 
-      // Get program titles for popular programs
       const programIds = popularPrograms.map((p) => p.programId);
       const programs = await prisma.program.findMany({
         where: { id: { in: programIds } },
@@ -739,7 +750,6 @@ class RegistrationService {
     }
   }
 
-  // Sync payment status with Midtrans (untuk reconciliation)
   async syncPaymentStatus(registrationId) {
     try {
       const registration = await prisma.registration.findUnique({
@@ -764,7 +774,6 @@ class RegistrationService {
         midtransData.fraud_status
       );
 
-      // Update status jika berbeda
       if (registration.paymentStatus !== mappedStatus) {
         const updateData = {
           paymentStatus: mappedStatus,

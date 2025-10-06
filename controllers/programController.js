@@ -1,7 +1,6 @@
 const ProgramService = require("../services/programService");
 
 class ProgramController {
-  // GET /api/programs - Enhanced with dashboard metrics
   static async getAllPrograms(req, res) {
     try {
       const filters = {
@@ -9,10 +8,9 @@ class ProgramController {
         page: req.query.page ? parseInt(req.query.page) : undefined,
         limit: req.query.limit ? parseInt(req.query.limit) : undefined,
         includeStats: req.query.includeStats === "true",
-        onlyAvailable: req.query.onlyAvailable !== "false", // Default to true
+        onlyAvailable: req.query.onlyAvailable !== "false",
       };
 
-      // Remove undefined values
       Object.keys(filters).forEach((key) => {
         if (filters[key] === undefined || filters[key] === "") {
           delete filters[key];
@@ -39,7 +37,6 @@ class ProgramController {
     }
   }
 
-  // GET /api/programs/:id
   static async getProgramById(req, res) {
     try {
       const { id } = req.params;
@@ -72,7 +69,6 @@ class ProgramController {
     }
   }
 
-  // GET /api/programs/:id/price - Get current pricing info
   static async getCurrentPrice(req, res) {
     try {
       const { id } = req.params;
@@ -103,7 +99,6 @@ class ProgramController {
     }
   }
 
-  // POST /api/programs
   static async createProgram(req, res) {
     try {
       const {
@@ -118,7 +113,6 @@ class ProgramController {
         isPopular,
       } = req.body;
 
-      // Validasi input
       if (!title || !duration || price === undefined) {
         return res.status(400).json({
           success: false,
@@ -126,7 +120,6 @@ class ProgramController {
         });
       }
 
-      // Validate price is numeric
       if (isNaN(price) || price < 0) {
         return res.status(400).json({
           success: false,
@@ -134,7 +127,6 @@ class ProgramController {
         });
       }
 
-      // Validate early bird price if provided
       if (earlyBirdPrice !== undefined && earlyBirdPrice !== null) {
         if (isNaN(earlyBirdPrice) || earlyBirdPrice < 0) {
           return res.status(400).json({
@@ -180,12 +172,10 @@ class ProgramController {
     }
   }
 
-  // PUT /api/programs/:id
   static async updateProgram(req, res) {
     try {
       const { id } = req.params;
 
-      // Validate price if provided
       if (
         req.body.price !== undefined &&
         (isNaN(req.body.price) || req.body.price < 0)
@@ -196,7 +186,6 @@ class ProgramController {
         });
       }
 
-      // Validate early bird price if provided
       if (
         req.body.earlyBirdPrice !== undefined &&
         req.body.earlyBirdPrice !== null &&
@@ -243,7 +232,6 @@ class ProgramController {
     }
   }
 
-  // DELETE /api/programs/:id
   static async deleteProgram(req, res) {
     try {
       const { id } = req.params;
@@ -277,7 +265,6 @@ class ProgramController {
     }
   }
 
-  // GET /api/programs/stats
   static async getProgramStats(req, res) {
     try {
       const filters = {
@@ -285,7 +272,6 @@ class ProgramController {
         endDate: req.query.end_date,
       };
 
-      // Remove null/undefined values
       Object.keys(filters).forEach((key) => {
         if (
           filters[key] === null ||
@@ -314,7 +300,6 @@ class ProgramController {
     }
   }
 
-  // GET /api/programs/search
   static async searchPrograms(req, res) {
     try {
       const { q: searchTerm } = req.query;
@@ -336,7 +321,6 @@ class ProgramController {
         limit: req.query.limit ? parseInt(req.query.limit) : undefined,
       };
 
-      // Remove undefined values
       Object.keys(filters).forEach((key) => {
         if (filters[key] === undefined) {
           delete filters[key];
@@ -366,7 +350,6 @@ class ProgramController {
     }
   }
 
-  // POST /api/programs/:id/duplicate
   static async duplicateProgram(req, res) {
     try {
       const { id } = req.params;

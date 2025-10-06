@@ -20,7 +20,7 @@ class ParticipantController {
         success: true,
         data: result.participants,
         count: result.participants.length,
-        totalCount: result.totalCount, // Total keseluruhan
+        totalCount: result.totalCount,
         filters,
         message: "Participants retrieved successfully",
       });
@@ -34,7 +34,6 @@ class ParticipantController {
     }
   }
 
-  // GET /api/participants/:id
   static async getParticipantById(req, res) {
     try {
       const { id } = req.params;
@@ -46,7 +45,7 @@ class ParticipantController {
         });
       }
 
-      console.log(`Fetching participant with ID: ${id}`);
+      // console.log(`Fetching participant with ID: ${id}`);
 
       const participant = await participantService.getParticipantById(id);
 
@@ -77,19 +76,17 @@ class ParticipantController {
         registration_id: req.query.registration_id,
       };
 
-      // Hapus nilai kosong/null
       Object.keys(filters).forEach((key) => {
         if (!filters[key]) {
           delete filters[key];
         }
       });
 
-      console.log("Exporting participants with filters:", filters);
+      // console.log("Exporting participants with filters:", filters);
 
       const result = await participantService.getAllParticipants(filters);
       const participants = result.participants;
 
-      // Buat workbook baru
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Participants");
 
@@ -106,7 +103,6 @@ class ParticipantController {
         { header: "Registration Date", key: "createdAt", width: 20 },
       ];
 
-      // Style header
       worksheet.getRow(1).font = { bold: true };
       worksheet.getRow(1).fill = {
         type: "pattern",
@@ -129,16 +125,13 @@ class ParticipantController {
         });
       });
 
-      // Format currency column
       const discountColumn = worksheet.getColumn("discountAmount");
       discountColumn.numFmt = "#,##0";
 
-      // Auto-fit columns
       worksheet.columns.forEach((column) => {
         if (column.width < 10) column.width = 10;
       });
 
-      // Set response headers
       const fileName = `participants_${
         new Date().toISOString().split("T")[0]
       }.xlsx`;
@@ -151,7 +144,6 @@ class ParticipantController {
         `attachment; filename="${fileName}"`
       );
 
-      // Write to response
       await workbook.xlsx.write(res);
       res.end();
     } catch (error) {

@@ -87,17 +87,18 @@ class RegistrationController {
           referral_code: p.referral_code
             ? p.referral_code.trim().toUpperCase()
             : null,
+          discount_amount: p.discount_amount || 0,
         })),
       };
 
-      console.log(
-        "Cleaned registration data:",
-        JSON.stringify(cleanedData, null, 2)
-      );
+      // console.log(
+      //   "Cleaned registration data:",
+      //   JSON.stringify(cleanedData, null, 2)
+      // );
 
       const result = await registrationService.createRegistration(cleanedData);
 
-      console.log("Registration created successfully:", result);
+      // console.log("Registration created successfully:", result);
 
       res.status(201).json({
         success: true,
@@ -177,7 +178,6 @@ class RegistrationController {
     }
   }
 
-  // GET /api/registrations
   static async getAllRegistrations(req, res) {
     try {
       const filters = {
@@ -190,7 +190,6 @@ class RegistrationController {
         limit: req.query.limit ? parseInt(req.query.limit) : undefined,
       };
 
-      // Remove null/undefined/empty values
       Object.keys(filters).forEach((key) => {
         if (
           filters[key] === null ||
@@ -222,7 +221,6 @@ class RegistrationController {
     }
   }
 
-  // GET /api/registrations/stats
   static async getRegistrationStats(req, res) {
     try {
       const filters = {
@@ -230,7 +228,6 @@ class RegistrationController {
         end_date: req.query.end_date,
       };
 
-      // Remove null values
       Object.keys(filters).forEach((key) => {
         if (
           filters[key] === null ||
@@ -261,12 +258,11 @@ class RegistrationController {
     }
   }
 
-  // POST /api/payment/notification - Midtrans webhook
   static async handlePaymentNotification(req, res) {
     try {
-      console.log("=== PAYMENT NOTIFICATION RECEIVED ===");
-      console.log("Headers:", req.headers);
-      console.log("Body:", JSON.stringify(req.body, null, 2));
+      // console.log("=== PAYMENT NOTIFICATION RECEIVED ===");
+      // console.log("Headers:", req.headers);
+      // console.log("Body:", JSON.stringify(req.body, null, 2));
 
       if (!req.body || Object.keys(req.body).length === 0) {
         console.log("Empty notification body");
@@ -280,9 +276,8 @@ class RegistrationController {
         req.body
       );
 
-      console.log("Payment notification processed successfully:", result);
+      // console.log("Payment notification processed successfully:", result);
 
-      // Midtrans expects simple response
       res.status(200).json({
         success: true,
         message: "OK",
@@ -290,7 +285,6 @@ class RegistrationController {
     } catch (error) {
       console.error("Error in handlePaymentNotification:", error);
 
-      // Still return 200 to Midtrans to prevent retries for invalid notifications
       res.status(200).json({
         success: false,
         message: "Notification processed with error",
@@ -299,7 +293,6 @@ class RegistrationController {
     }
   }
 
-  // GET /api/payment/status/:registrationId
   static async getPaymentStatus(req, res) {
     try {
       const { registrationId } = req.params;
@@ -311,7 +304,7 @@ class RegistrationController {
         });
       }
 
-      console.log(`Checking payment status for: ${registrationId}`);
+      // console.log(`Checking payment status for: ${registrationId}`);
 
       const registration = await registrationService.getRegistrationById(
         registrationId
@@ -347,7 +340,6 @@ class RegistrationController {
     }
   }
 
-  // POST /api/payment/check/:registrationId - Manual sync dengan Midtrans
   static async checkPaymentStatus(req, res) {
     try {
       const { registrationId } = req.params;
@@ -359,9 +351,9 @@ class RegistrationController {
         });
       }
 
-      console.log(
-        `Syncing payment status with Midtrans for: ${registrationId}`
-      );
+      // console.log(
+      //   `Syncing payment status with Midtrans for: ${registrationId}`
+      // );
 
       const result = await registrationService.syncPaymentStatus(
         registrationId
@@ -382,7 +374,6 @@ class RegistrationController {
     }
   }
 
-  // DELETE /api/registration/:registrationId/cancel
   static async cancelRegistration(req, res) {
     try {
       const { registrationId } = req.params;
@@ -394,7 +385,7 @@ class RegistrationController {
         });
       }
 
-      console.log(`Cancelling registration: ${registrationId}`);
+      // console.log(`Cancelling registration: ${registrationId}`);
 
       const registration = await registrationService.getRegistrationById(
         registrationId
@@ -407,7 +398,6 @@ class RegistrationController {
         });
       }
 
-      // Check payment status - use camelCase field from Prisma
       if (registration.paymentStatus === "paid") {
         return res.status(400).json({
           success: false,
@@ -417,7 +407,6 @@ class RegistrationController {
 
       let result = { success: true };
 
-      // Cancel di Midtrans jika ada order ID dan masih pending
       if (
         registration.midtransOrderId &&
         registration.paymentStatus === "pending"
@@ -460,7 +449,6 @@ class RegistrationController {
         end_date: req.query.end_date,
       };
 
-      // Remove null/undefined/empty values
       Object.keys(filters).forEach((key) => {
         if (
           filters[key] === null ||
@@ -471,17 +459,15 @@ class RegistrationController {
         }
       });
 
-      console.log("Exporting registrations with filters:", filters);
+      // console.log("Exporting registrations with filters:", filters);
 
       const registrations = await registrationService.getAllRegistrations(
         filters
       );
 
-      // Buat workbook baru
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Registrations");
 
-      // Set column headers
       worksheet.columns = [
         { header: "Registration ID", key: "registrationId", width: 20 },
         { header: "Midtrans Order ID", key: "midtransOrderId", width: 25 },
@@ -497,7 +483,6 @@ class RegistrationController {
         { header: "Registration Date", key: "createdAt", width: 20 },
       ];
 
-      // Style header
       worksheet.getRow(1).font = { bold: true };
       worksheet.getRow(1).fill = {
         type: "pattern",
@@ -505,7 +490,6 @@ class RegistrationController {
         fgColor: { argb: "FFE6F3FF" },
       };
 
-      // Add data rows
       registrations.forEach((reg) => {
         worksheet.addRow({
           registrationId: reg.registrationId,
@@ -525,16 +509,13 @@ class RegistrationController {
         });
       });
 
-      // Format currency column
       const amountColumn = worksheet.getColumn("totalAmount");
       amountColumn.numFmt = "#,##0";
 
-      // Auto-fit columns
       worksheet.columns.forEach((column) => {
         if (column.width < 10) column.width = 10;
       });
 
-      // Set response headers
       const fileName = `registrations_${
         new Date().toISOString().split("T")[0]
       }.xlsx`;
@@ -547,7 +528,6 @@ class RegistrationController {
         `attachment; filename="${fileName}"`
       );
 
-      // Write to response
       await workbook.xlsx.write(res);
       res.end();
     } catch (error) {
@@ -573,7 +553,11 @@ class RegistrationController {
           .json({ success: false, message: "Registration not found" });
       }
 
-      const doc = new PDFDocument({ margin: 50 });
+      const doc = new PDFDocument({
+        margin: 50,
+        size: "A4",
+      });
+
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
@@ -582,97 +566,284 @@ class RegistrationController {
 
       doc.pipe(res);
 
-      doc.fontSize(22).text("INVOICE", { align: "center" });
-      doc.moveDown();
-      doc.fontSize(12).text(`Registration ID: ${registration.registrationId}`);
+      const path = require("path");
+      const fs = require("fs");
+      const logoPath = path.join(__dirname, "../assets/legacy-logo.png");
+
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 50, 45, { width: 80 });
+      }
+
+      doc
+        .fontSize(10)
+        .fillColor("#333333")
+        .text("Legacy", 400, 50, { align: "right" })
+        .text("Surabaya, Indonesia", { align: "right" })
+        .text("Email: legacy@tq-official.com", { align: "right" })
+        .text("Phone: +62 815 1530 0511", { align: "right" });
+
+      doc
+        .fontSize(28)
+        .fillColor("#1a1a1a")
+        .text("INVOICE", 50, 140, { align: "left" });
+
+      doc
+        .fontSize(10)
+        .fillColor("#666666")
+        .text(`Invoice Number: ${registration.registrationId}`, 50, 180);
+
       if (registration.paidAt) {
         doc.text(
-          `Tanggal Bayar: ${new Date(registration.paidAt).toLocaleString(
-            "id-ID"
+          `Payment Date: ${new Date(registration.paidAt).toLocaleDateString(
+            "id-ID",
+            {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            }
           )}`
         );
       }
-      doc.moveDown(2);
 
-      doc.fontSize(14).text("Informasi Registrasi", { underline: true });
-      doc.moveDown(0.5);
-      doc.fontSize(12).text(`Nama Kontak   : ${registration.contactName}`);
-      doc.text(`Email          : ${registration.contactEmail}`);
-      doc.text(`Program        : ${registration.program_title}`);
-      doc.text(`Durasi         : ${registration.duration}`);
       doc.text(
-        `Harga Normal   : Rp${registration.program?.price?.toLocaleString(
-          "id-ID"
+        `Invoice Date: ${new Date(registration.createdAt).toLocaleDateString(
+          "id-ID",
+          {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }
         )}`
       );
 
-      if (registration.usedEarlyBird) {
-        doc.text(
-          `Harga Early Bird: Rp${registration.actual_price_per_participant.toLocaleString(
-            "id-ID"
-          )}`,
-          { continued: false }
-        );
-      }
-      doc.text(`Status         : ${registration.paymentStatus}`);
-      doc.moveDown(2);
+      const statusY = 180;
+      const statusColors = {
+        paid: "#10b981",
+        pending: "#f59e0b",
+        failed: "#ef4444",
+        cancelled: "#6b7280",
+      };
 
-      doc.fontSize(14).text("Daftar Peserta", { underline: true });
-      doc.moveDown(0.5);
-      registration.participants.forEach((p, i) => {
-        doc.fontSize(12).text(`${i + 1}. ${p.name} - ${p.email} - ${p.phone}`);
-        if (p.referralCode) {
+      const statusColor = statusColors[registration.paymentStatus] || "#6b7280";
+      const statusText = registration.paymentStatus.toUpperCase();
+
+      doc
+        .roundedRect(400, statusY, 120, 25, 3)
+        .fillAndStroke(statusColor, statusColor);
+
+      doc
+        .fontSize(10)
+        .fillColor("#ffffff")
+        .text(statusText, 400, statusY + 7, {
+          width: 120,
+          align: "center",
+        });
+
+      doc
+        .strokeColor("#e5e7eb")
+        .lineWidth(1)
+        .moveTo(50, 230)
+        .lineTo(545, 230)
+        .stroke();
+
+      doc.fontSize(12).fillColor("#1a1a1a").text("BILL TO", 50, 250);
+
+      doc
+        .fontSize(10)
+        .fillColor("#333333")
+        .text(registration.contactName, 50, 270)
+        .text(registration.contactEmail, 50, 285)
+        .text(registration.contactPhone, 50, 300);
+
+      doc.fontSize(12).fillColor("#1a1a1a").text("PROGRAM DETAILS", 320, 250);
+
+      doc
+        .fontSize(10)
+        .fillColor("#333333")
+        .text(registration.program_title, 320, 270)
+        .text(`Duration: ${registration.duration}`, 320, 285)
+        .text(`Participants: ${registration.totalParticipants}`, 320, 300);
+
+      const tableTop = 350;
+      doc
+        .strokeColor("#e5e7eb")
+        .lineWidth(1)
+        .moveTo(50, tableTop)
+        .lineTo(545, tableTop)
+        .stroke();
+
+      doc.rect(50, tableTop + 5, 495, 25).fillAndStroke("#f3f4f6", "#e5e7eb");
+
+      doc
+        .fontSize(10)
+        .fillColor("#1a1a1a")
+        .text("DESCRIPTION", 60, tableTop + 13)
+        .text("QTY", 350, tableTop + 13)
+        .text("UNIT PRICE", 400, tableTop + 13)
+        .text("AMOUNT", 480, tableTop + 13);
+
+      let yPosition = tableTop + 40;
+
+      registration.participants.forEach((participant, index) => {
+        const pricePerParticipant = registration.actual_price_per_participant;
+        const discount = participant.discountAmount || 0;
+        const amount = pricePerParticipant - discount;
+
+        doc
+          .fontSize(9)
+          .fillColor("#333333")
+          .text(`Participant ${index + 1}`, 60, yPosition)
+          .text(participant.name, 60, yPosition + 12, { width: 250 });
+
+        doc
+          .text("1", 350, yPosition + 6)
+          .text(
+            `Rp ${pricePerParticipant.toLocaleString("id-ID")}`,
+            380,
+            yPosition + 6,
+            { width: 80, align: "right" }
+          )
+          .text(
+            `Rp ${pricePerParticipant.toLocaleString("id-ID")}`,
+            460,
+            yPosition + 6,
+            { width: 80, align: "right" }
+          );
+
+        yPosition += 30;
+
+        if (discount > 0) {
           doc
-            .fontSize(11)
-            .fillColor("green")
+            .fillColor("#10b981")
             .text(
-              `   Referral Code: ${
-                p.referralCode
-              } (- Rp${p.discountAmount.toLocaleString("id-ID")})`
-            );
-          doc.fillColor("black");
-        }
-        doc.moveDown(0.5);
-      });
-      doc.moveDown(1.5);
+              `Referral Discount (${participant.referralCode})`,
+              60,
+              yPosition
+            )
+            .text("1", 350, yPosition)
+            .text(`-Rp ${discount.toLocaleString("id-ID")}`, 380, yPosition, {
+              width: 80,
+              align: "right",
+            })
+            .text(`-Rp ${discount.toLocaleString("id-ID")}`, 460, yPosition, {
+              width: 80,
+              align: "right",
+            });
 
-      doc.fontSize(14).text("Ringkasan Biaya", { underline: true });
-      doc.moveDown(0.5);
+          yPosition += 25;
+        }
+
+        if (index < registration.participants.length - 1) {
+          doc
+            .strokeColor("#f3f4f6")
+            .lineWidth(1)
+            .moveTo(50, yPosition)
+            .lineTo(545, yPosition)
+            .stroke();
+          yPosition += 10;
+        }
+      });
+
+      yPosition += 20;
+
+      doc
+        .strokeColor("#e5e7eb")
+        .lineWidth(1)
+        .moveTo(50, yPosition)
+        .lineTo(545, yPosition)
+        .stroke();
+
+      yPosition += 20;
 
       const subtotal =
         registration.totalParticipants *
         registration.actual_price_per_participant;
+      const totalDiscount = registration.discount_total || 0;
+      const subtotalAfterDiscount = subtotal - totalDiscount;
+      const ppn = Math.round(subtotalAfterDiscount * 0.11);
+      const grandTotal = registration.grand_total;
 
       doc
-        .fontSize(12)
-        .text(
-          `Harga per Peserta: Rp${registration.actual_price_per_participant.toLocaleString(
-            "id-ID"
-          )}`
-        );
-      doc.text(
-        `Subtotal (${
-          registration.totalParticipants
-        } peserta): Rp${subtotal.toLocaleString("id-ID")}`
-      );
-      if (registration.discount_total > 0) {
+        .fontSize(10)
+        .fillColor("#666666")
+        .text("Subtotal:", 380, yPosition, { width: 80, align: "right" })
+        .fillColor("#333333")
+        .text(`Rp ${subtotal.toLocaleString("id-ID")}`, 460, yPosition, {
+          width: 80,
+          align: "right",
+        });
+
+      yPosition += 20;
+
+      if (totalDiscount > 0) {
         doc
-          .fillColor("green")
+          .fillColor("#666666")
+          .text("Total Discount:", 380, yPosition, {
+            width: 80,
+            align: "right",
+          })
+          .fillColor("#10b981")
           .text(
-            `Total Diskon Referral: - Rp${registration.discount_total.toLocaleString(
-              "id-ID"
-            )}`
+            `-Rp ${totalDiscount.toLocaleString("id-ID")}`,
+            460,
+            yPosition,
+            { width: 80, align: "right" }
           );
-        doc.fillColor("black");
+
+        yPosition += 20;
       }
-      doc.moveDown(0.5);
+
       doc
-        .fontSize(14)
+        .fillColor("#666666")
+        .text("PPN (11%):", 380, yPosition, { width: 80, align: "right" })
+        .fillColor("#333333")
+        .text(`Rp ${ppn.toLocaleString("id-ID")}`, 460, yPosition, {
+          width: 80,
+          align: "right",
+        });
+
+      yPosition += 30;
+
+      doc
+        .fillColor("#666666")
+        .text("Total Amount", 380, yPosition, { width: 80, align: "right" })
+        .fillColor("#333333")
+        .text(`Rp ${grandTotal.toLocaleString("id-ID")}`, 460, yPosition, {
+          width: 80,
+          align: "right",
+        });
+
+      yPosition += 30;
+
+      const footerY = 720;
+
+      doc
+        .strokeColor("#e5e7eb")
+        .lineWidth(1)
+        .moveTo(50, footerY)
+        .lineTo(545, footerY)
+        .stroke();
+
+      doc
+        .fontSize(9)
+        .fillColor("#666666")
+        .text("Thank you for your registration!", 50, footerY + 15)
         .text(
-          `TOTAL DIBAYAR: Rp${registration.grand_total.toLocaleString(
-            "id-ID"
-          )}`,
-          { align: "right", underline: true }
+          "For any inquiries, please contact us at legacy@tq-official.com",
+          50,
+          footerY + 30
+        )
+        .text(
+          `Generated on ${new Date().toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+          50,
+          footerY + 45,
+          { align: "center", width: 495 }
         );
 
       doc.end();

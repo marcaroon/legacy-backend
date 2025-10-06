@@ -121,6 +121,7 @@ model PaymentLog {
   fraudStatus       String?       @map("fraud_status")
   mappedStatus      String        @map("mapped_status")
   notificationData  Json          @map("notification_data")
+  paymentType       String?
   registrationId    Int?          @map("registration_id")
   createdAt         DateTime      @default(now()) @map("created_at")
   registration      Registration? @relation(fields: [registrationId], references: [id])
