@@ -19,7 +19,7 @@ function formatMidtransTime(date = new Date()) {
 async function validateReferralCode(code, price) {
   if (!code) return { valid: false, discount: 0 };
 
-  console.log(`Validating referral code: ${code} for price: ${price}`)
+  // console.log(`Validating referral code: ${code} for price: ${price}`)
 
   const referral = await prisma.referralCode.findFirst({
     where: {
@@ -35,7 +35,7 @@ async function validateReferralCode(code, price) {
   });
 
   if (!referral) {
-    console.log(`Referral code ${code} not found or inactive`);
+    // console.log(`Referral code ${code} not found or inactive`);
     return { valid: false, discount: 0 };
   }
 
@@ -49,7 +49,7 @@ async function validateReferralCode(code, price) {
     discount = Math.floor((price * referral.discountValue) / 100);
   }
 
-  console.log(`Discount calculated: ${discount} for code ${code}`);
+  // console.log(`Discount calculated: ${discount} for code ${code}`);
 
   await prisma.referralCode.update({
     where: { id: referral.id },
@@ -225,25 +225,25 @@ class RegistrationService {
           custom_field3: `Participants-${participants.length}`,
         };
 
-        console.log(
-          "Creating Midtrans transaction with parameter:",
-          JSON.stringify(parameter, null, 2)
-        );
+        // console.log(
+        //   "Creating Midtrans transaction with parameter:",
+        //   JSON.stringify(parameter, null, 2)
+        // );
 
         const transaction = await this.snap.createTransaction(parameter);
 
-        console.log("Midtrans transaction created:", transaction);
-        console.log("Subtotal:", subtotal);
-        console.log(
-          "Total diskon:",
-          participants.reduce((a, b) => a + b.discount_amount, 0)
-        );
-        console.log("PPN:", ppn);
-        console.log("TotalAmount:", totalAmount);
-        console.log(
-          "Sum item_details:",
-          item_details.reduce((a, b) => a + b.price * b.quantity, 0)
-        );
+        // console.log("Midtrans transaction created:", transaction);
+        // console.log("Subtotal:", subtotal);
+        // console.log(
+        //   "Total diskon:",
+        //   participants.reduce((a, b) => a + b.discount_amount, 0)
+        // );
+        // console.log("PPN:", ppn);
+        // console.log("TotalAmount:", totalAmount);
+        // console.log(
+        //   "Sum item_details:",
+        //   item_details.reduce((a, b) => a + b.price * b.quantity, 0)
+        // );
 
         await tx.registration.update({
           where: { id: registration.id },
@@ -348,10 +348,10 @@ class RegistrationService {
 
   async handlePaymentNotification(notification) {
     try {
-      console.log(
-        "Processing payment notification:",
-        JSON.stringify(notification, null, 2)
-      );
+      // console.log(
+      //   "Processing payment notification:",
+      //   JSON.stringify(notification, null, 2)
+      // );
 
       if (!this.validateNotificationSignature(notification)) {
         throw new Error("Invalid notification signature");
@@ -371,9 +371,9 @@ class RegistrationService {
         fraud_status
       );
 
-      console.log(
-        `Payment status for ${order_id}: ${transaction_status} (fraud: ${fraud_status}) -> ${paymentStatus}`
-      );
+      // console.log(
+      //   `Payment status for ${order_id}: ${transaction_status} (fraud: ${fraud_status}) -> ${paymentStatus}`
+      // );
 
       const updateData = {
         paymentStatus,
@@ -450,9 +450,9 @@ class RegistrationService {
       const hash = crypto.createHash("sha512").update(input).digest("hex");
 
       const isValid = hash === signature_key;
-      console.log(
-        `Signature validation for ${order_id}: ${isValid ? "VALID" : "INVALID"}`
-      );
+      // console.log(
+      //   `Signature validation for ${order_id}: ${isValid ? "VALID" : "INVALID"}`
+      // );
 
       return isValid;
     } catch (error) {
@@ -500,7 +500,7 @@ class RegistrationService {
         },
       });
 
-      console.log("Payment notification logged");
+      // console.log("Payment notification logged");
     } catch (error) {
       console.error("Error logging payment notification:", error);
     }
@@ -509,7 +509,7 @@ class RegistrationService {
   async checkTransactionStatus(orderId) {
     try {
       const statusResponse = await this.coreApi.transaction.status(orderId);
-      console.log(`Transaction status for ${orderId}:`, statusResponse);
+      // console.log(`Transaction status for ${orderId}:`, statusResponse);
 
       return {
         success: true,
@@ -789,9 +789,9 @@ class RegistrationService {
           data: updateData,
         });
 
-        console.log(
-          `Payment status synced for ${registrationId}: ${registration.paymentStatus} -> ${mappedStatus}`
-        );
+        // console.log(
+        //   `Payment status synced for ${registrationId}: ${registration.paymentStatus} -> ${mappedStatus}`
+        // );
       }
 
       return {
