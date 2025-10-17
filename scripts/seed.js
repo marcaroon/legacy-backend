@@ -4,12 +4,12 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const plainPassword = "admin123";
+  const plainPassword = "legacyfrtg";
   const hashed = await bcrypt.hash(plainPassword, 10);
 
   await prisma.user.create({
     data: {
-      username: "admin",
+      username: "legacyadmin",
       password: hashed,
       role: "admin",
     },
