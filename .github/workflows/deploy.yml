@@ -22,6 +22,11 @@ jobs:
           docker cp $id:/app ./build
           docker rm -v $id
 
+      - name: Verify build contents
+        run: |
+          ls -la ./build | head -n 20
+          ls -la ./build/node_modules | head -n 20
+
       - name: Deploy to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -29,4 +34,5 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./build/
-          server-dir: /public_html/backend/
+          server-dir: /express-backend.api.tqpartner.my.id/backend-legacy/
+
