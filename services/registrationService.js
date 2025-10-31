@@ -117,6 +117,7 @@ class RegistrationService {
             totalAmount: 0,
             paymentStatus: "pending",
             usedEarlyBird: usedEarlyBird,
+            paymentMethod: "va",
           },
         });
 
@@ -283,6 +284,164 @@ class RegistrationService {
     }
   }
 
+  async createBankTransferRegistration(registrationData) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const {
+          program_id,
+          contact_name,
+          contact_email,
+          contact_phone,
+          participants,
+        } = registrationData;
+
+        const program = await tx.program.findUnique({
+          where: { id: program_id },
+        });
+
+        if (!program) {
+          throw new Error("Program tidak ditemukan");
+        }
+
+        const now = new Date();
+        const isEarlyBirdActive =
+          program.earlyBirdEndDate && new Date(program.earlyBirdEndDate) >= now;
+
+        const activePrice =
+          isEarlyBirdActive && program.earlyBirdPrice
+            ? program.earlyBirdPrice
+            : program.price;
+
+        const usedEarlyBird = Boolean(
+          isEarlyBirdActive && program.earlyBirdPrice
+        );
+
+        const registrationId = `REG-${Date.now()}-${uuidv4().substring(0, 8)}`;
+
+        const registration = await tx.registration.create({
+          data: {
+            registrationId,
+            programId: program_id,
+            contactName: contact_name,
+            contactEmail: contact_email,
+            contactPhone: contact_phone,
+            totalParticipants: participants.length,
+            totalAmount: 0,
+            paymentStatus: "pending",
+            usedEarlyBird: usedEarlyBird,
+            paymentMethod: "bank_transfer",
+          },
+        });
+
+        let subtotal = 0;
+        const participantData = [];
+        for (const participant of participants) {
+          let discount = participant.discount_amount || 0;
+          let referralCode = participant.referral_code || null;
+          if (referralCode && discount === 0) {
+            const result = await validateReferralCode(
+              referralCode,
+              activePrice
+            );
+            discount = result.discount;
+          }
+          participant.discount_amount = discount;
+          subtotal += activePrice - discount;
+          participantData.push({
+            registrationId: registration.id,
+            name: participant.name,
+            email: participant.email,
+            phone: participant.phone,
+            city: participant.city || null,
+            referralCode: referralCode,
+            discountAmount: discount,
+          });
+        }
+
+        const ppn = Math.round(subtotal * 0.11);
+        const totalAmount = subtotal + ppn;
+
+        await tx.participant.createMany({
+          data: participantData,
+        });
+
+        for (const p of participantData) {
+          if (p.referralCode) {
+            await ReferralService.recordReferralUsage(
+              p.referralCode,
+              registration.id,
+              p.discountAmount
+            );
+          }
+        }
+
+        await tx.registration.update({
+          where: { id: registration.id },
+          data: { totalAmount },
+        });
+
+        return {
+          registration_id: registrationId,
+          total_amount: totalAmount,
+          payment_method: "bank_transfer",
+        };
+      });
+    } catch (error) {
+      console.error("Error creating bank transfer registration:", error);
+      throw error;
+    }
+  }
+
+  async uploadTransferProof(registrationId, proofUrl) {
+    try {
+      const registration = await prisma.registration.update({
+        where: { registrationId },
+        data: {
+          bankTransferProof: proofUrl,
+        },
+      });
+
+      return registration;
+    } catch (error) {
+      console.error("Error uploading transfer proof:", error);
+      throw error;
+    }
+  }
+
+  async verifyBankTransfer(registrationId, verified) {
+    try {
+      const updateData = {
+        bankTransferVerified: verified,
+      };
+
+      if (verified) {
+        updateData.paymentStatus = "paid";
+        updateData.paidAt = new Date();
+      }
+
+      const registration = await prisma.registration.update({
+        where: { registrationId },
+        data: updateData,
+        include: { participants: true },
+      });
+
+      if (verified) {
+        for (const participant of registration.participants) {
+          try {
+            await sendConfirmationEmail(participant);
+          } catch (err) {
+            console.error(`Failed to send email to ${participant.email}:`, err);
+          }
+        }
+      }
+
+      return registration;
+    } catch (error) {
+      console.error("Error verifying bank transfer:", error);
+      throw error;
+    }
+  }
+
   async getRegistrationById(registrationId) {
     try {
       const registration = await prisma.registration.findUnique({
@@ -402,7 +561,7 @@ class RegistrationService {
         const participants = await prisma.participant.findMany({
           where: { registrationId: reg.id },
         });
-      
+
         for (const participant of participants) {
           try {
             await sendConfirmationEmail(participant);

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const path = require("path");
 
 // Import controllers
 const UserController = require("../controllers/userController");
@@ -8,6 +9,8 @@ const ProgramController = require("../controllers/programController");
 const RegistrationController = require("../controllers/registrationController");
 const ReferralController = require("../controllers/referralController");
 const ParticipantController = require("../controllers/participantController");
+
+const upload = require("../middlewares/uploadMiddleware");
 
 // Import middleware
 const { logMidtransRequest } = require("../config/midtrans");
@@ -59,29 +62,35 @@ router.get("/programs/:id/price", ProgramController.getCurrentPrice); // ok
 
 // Registration routes
 router.post("/register", RegistrationController.createRegistration); // ok
+
 router.get(
   "/registration/:registrationId",
   RegistrationController.getRegistrationById
 ); // ok
+
 router.get(
   "/registrations",
   AuthMiddleware.adminOnly,
   RegistrationController.getAllRegistrations
 ); // ok
+
 // router.get(
 //   "/registrations/stats",
 //   AuthMiddleware.adminOnly,
 //   RegistrationController.getRegistrationStats
 // ); // pending
+
 router.delete(
   "/registration/:registrationId/cancel",
   RegistrationController.cancelRegistration
 ); // ok
+
 router.get(
   "/registrations-export-excel",
   AuthMiddleware.adminOnly,
   RegistrationController.exportRegistrationsToExcel
 ); // ok
+
 router.get(
   "/registration/:registrationId/invoice",
   RegistrationController.downloadInvoice
@@ -93,11 +102,13 @@ router.get(
   AuthMiddleware.adminOnly,
   ParticipantController.getAllParticipants
 ); // ok
+
 router.get(
   "/participants/:id",
   AuthMiddleware.adminOnly,
   ParticipantController.getParticipantById
 ); // ok
+
 router.get(
   "/participants-export-excel",
   ParticipantController.exportParticipantsToExcel
@@ -108,13 +119,40 @@ router.post(
   "/payment/notification",
   RegistrationController.handlePaymentNotification
 );
+
 router.get(
   "/payment/status/:registrationId",
   RegistrationController.getPaymentStatus
 ); // ok
+
 router.post(
   "/payment/check/:registrationId",
   RegistrationController.checkPaymentStatus
+);
+
+router.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+router.post(
+  "/register/bank-transfer",
+  RegistrationController.createBankTransferRegistration
+);
+
+router.post(
+  "/registration/:registrationId/upload-proof",
+  upload.single("file"),
+  RegistrationController.uploadTransferProof
+);
+
+router.post(
+  "/registration/:registrationId/verify-transfer",
+  AuthMiddleware.adminOnly,
+  RegistrationController.verifyBankTransfer
+);
+
+router.get(
+  "/registration/:registrationId/transfer-proof",
+  AuthMiddleware.adminOnly,
+  RegistrationController.getTransferProof
 );
 
 // Referral routes
@@ -183,7 +221,6 @@ router.get("/test", (req, res) => {
   });
 });
 
-// Error handling middleware khusus untuk routes ini
 router.use((error, req, res, next) => {
   console.error("Route error:", error);
 

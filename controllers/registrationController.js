@@ -141,6 +141,304 @@ class RegistrationController {
     }
   }
 
+  static async createBankTransferRegistration(req, res) {
+    try {
+      const {
+        program_id,
+        contact_name,
+        contact_email,
+        contact_phone,
+        participants,
+      } = req.body;
+
+      const validationErrors = [];
+
+      if (!program_id || isNaN(parseInt(program_id))) {
+        validationErrors.push("program_id must be a valid number");
+      }
+      if (!contact_name || !contact_name.trim()) {
+        validationErrors.push("contact_name is required");
+      }
+      if (!contact_email || !contact_email.trim()) {
+        validationErrors.push("contact_email is required");
+      }
+      if (!contact_phone || !contact_phone.trim()) {
+        validationErrors.push("contact_phone is required");
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (contact_email && !emailRegex.test(contact_email.trim())) {
+        validationErrors.push("contact_email format is invalid");
+      }
+
+      if (
+        !participants ||
+        !Array.isArray(participants) ||
+        participants.length === 0
+      ) {
+        validationErrors.push("participants must be a non-empty array");
+      } else {
+        participants.forEach((participant, index) => {
+          if (!participant.name || !participant.name.trim()) {
+            validationErrors.push(`participant[${index}].name is required`);
+          }
+          if (!participant.email || !participant.email.trim()) {
+            validationErrors.push(`participant[${index}].email is required`);
+          } else if (!emailRegex.test(participant.email.trim())) {
+            validationErrors.push(
+              `participant[${index}].email format is invalid`
+            );
+          }
+          if (!participant.phone || !participant.phone.trim()) {
+            validationErrors.push(`participant[${index}].phone is required`);
+          }
+          if (!participant.city || !participant.city.trim()) {
+            validationErrors.push(`participant[${index}].city is required`);
+          }
+        });
+      }
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation errors",
+          errors: validationErrors,
+        });
+      }
+
+      const cleanedData = {
+        program_id: parseInt(program_id),
+        contact_name: contact_name.trim(),
+        contact_email: contact_email.trim().toLowerCase(),
+        contact_phone: contact_phone.trim(),
+        participants: participants.map((p) => ({
+          name: p.name.trim(),
+          email: p.email.trim().toLowerCase(),
+          phone: p.phone.trim(),
+          city: p.city.trim(),
+          referral_code: p.referral_code
+            ? p.referral_code.trim().toUpperCase()
+            : null,
+          discount_amount: p.discount_amount || 0,
+        })),
+      };
+
+      const result = await registrationService.createBankTransferRegistration(
+        cleanedData
+      );
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: "Bank transfer registration created successfully",
+      });
+    } catch (error) {
+      console.error("Error in createBankTransferRegistration:", error);
+
+      let statusCode = 500;
+      let message = "Failed to create bank transfer registration";
+
+      if (
+        error.message.includes("Program tidak ditemukan") ||
+        error.message.includes("Program not found")
+      ) {
+        statusCode = 404;
+        message = "Program not found";
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        message: message,
+        error: error.message,
+      });
+    }
+  }
+
+  static async uploadTransferProof(req, res) {
+    try {
+      const { registrationId } = req.params;
+
+      // validasi file
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "No file uploaded",
+        });
+      }
+
+      // cek apakah registrasi ada
+      const registration = await registrationService.getRegistrationById(
+        registrationId
+      );
+
+      if (!registration) {
+        // hapus file yang sudah diupload
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({
+          success: false,
+          message: "Registration not found",
+        });
+      }
+
+      // cek apakah payment method adalah bank_transfer
+      if (registration.paymentMethod !== "bank_transfer") {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({
+          success: false,
+          message:
+            "This registration does not use bank transfer payment method",
+        });
+      }
+      const baseUrl =
+        process.env.API_BASE_URL ||
+        `http://localhost:${process.env.PORT || 5000}/api`;
+      const proofUrl = `${baseUrl}/uploads/transfer-proofs/${req.file.filename}`;
+
+      // hapus file lama jika ada
+      if (registration.bankTransferProof) {
+        try {
+          const oldFilename = path.basename(registration.bankTransferProof);
+          const oldFilePath = path.join(
+            __dirname,
+            "../uploads/transfer-proofs",
+            oldFilename
+          );
+          if (fs.existsSync(oldFilePath)) {
+            fs.unlinkSync(oldFilePath);
+          }
+        } catch (error) {
+          console.error("Error deleting old file:", error);
+        }
+      }
+
+      // update database
+      const updatedRegistration = await registrationService.uploadTransferProof(
+        registrationId,
+        proofUrl
+      );
+
+      res.json({
+        success: true,
+        data: {
+          registration_id: updatedRegistration.registrationId,
+          proof_url: proofUrl,
+          uploaded_at: new Date(),
+        },
+        message: "Transfer proof uploaded successfully",
+      });
+    } catch (error) {
+      // hapus file jika terjadi error
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+
+      console.error("Error uploading transfer proof:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to upload transfer proof",
+        error: error.message,
+      });
+    }
+  }
+
+  static async verifyBankTransfer(req, res) {
+    try {
+      const { registrationId } = req.params;
+      const { verified } = req.body;
+
+      if (typeof verified !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "verified must be a boolean",
+        });
+      }
+
+      // cek registrasi
+      const registration = await registrationService.getRegistrationById(
+        registrationId
+      );
+
+      if (!registration) {
+        return res.status(404).json({
+          success: false,
+          message: "Registration not found",
+        });
+      }
+
+      // cek apakah sudah upload bukti
+      if (!registration.bankTransferProof) {
+        return res.status(400).json({
+          success: false,
+          message: "No transfer proof uploaded yet",
+        });
+      }
+
+      const updatedRegistration = await registrationService.verifyBankTransfer(
+        registrationId,
+        verified
+      );
+
+      res.json({
+        success: true,
+        data: {
+          registration_id: updatedRegistration.registrationId,
+          payment_status: updatedRegistration.paymentStatus,
+          verified_at: verified ? new Date() : null,
+        },
+        message: verified
+          ? "Bank transfer verified successfully"
+          : "Bank transfer rejected",
+      });
+    } catch (error) {
+      console.error("Error verifying bank transfer:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to verify bank transfer",
+        error: error.message,
+      });
+    }
+  }
+
+  static async getTransferProof(req, res) {
+    try {
+      const { registrationId } = req.params;
+
+      const registration = await registrationService.getRegistrationById(
+        registrationId
+      );
+
+      if (!registration || !registration.bankTransferProof) {
+        return res.status(404).json({
+          success: false,
+          message: "Transfer proof not found",
+        });
+      }
+
+      const filename = path.basename(registration.bankTransferProof);
+      const filePath = path.join(
+        __dirname,
+        "../uploads/transfer-proofs",
+        filename
+      );
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({
+          success: false,
+          message: "File not found on server",
+        });
+      }
+
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error("Error getting transfer proof:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get transfer proof",
+        error: error.message,
+      });
+    }
+  }
+
   static async getRegistrationById(req, res) {
     try {
       const { registrationId } = req.params;

@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const bodyParser = require("body-parser");
 require("dotenv").config();
 
@@ -14,7 +15,7 @@ const allowedOrigins = [
   "https://admin.fromlegacy.tqpartner.com",
   "http://localhost:5174",
   "http://localhost:5173",
-  "https://a5e00b954176.ngrok-free.app",
+  "https://ngrok-free.app",
   "https://app.sandbox.midtrans.com",
   "https://panapi.sandbox.midtrans.com",
 ];
@@ -50,6 +51,8 @@ app.use((req, res, next) => {
   // console.log(`[${timestamp}] ${req.method} ${req.path}`);
   next();
 });
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api", routes);

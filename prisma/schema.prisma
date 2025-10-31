@@ -54,6 +54,9 @@ model Registration {
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
   usedEarlyBird         Boolean       @default(false) @map("used_early_bird")
+  paymentMethod         String?       @map("payment_method") // 'va' atau 'bank_transfer'
+  bankTransferProof     String?       @map("bank_transfer_proof") // URL bukti transfer
+  bankTransferVerified  Boolean       @default(false) @map("bank_transfer_verified")
   participants          Participant[]
   paymentLogs           PaymentLog[]
   program               Program       @relation(fields: [programId], references: [id])
