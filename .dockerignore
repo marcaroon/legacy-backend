@@ -1,6 +1,5 @@
 .git
 .gitignore
-temp
 uploads
 *.log
 *.postman_collection.json

@@ -1,37 +1,41 @@
-name: CI/CD Deploy to cPanel
+name: Deploy Backend to cPanel
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t legacy-backend .
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      - name: Extract app folder from Docker container
-        run: |
-          id=$(docker create legacy-backend)
-          docker cp $id:/app ./build
-          docker rm -v $id
+    - name: Build Docker image
+      run: docker build -t legacy-backend .
 
-      - name: Verify build contents
-        run: |
-          ls -la ./build | head -n 20
-          ls -la ./build/node_modules | head -n 20
+    - name: Extract build output from Docker container
+      run: |
+        id=$(docker create legacy-backend)
+        docker cp $id:/app ./build
+        docker rm -v $id
 
-      - name: Deploy to cPanel via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./build/
-          server-dir: /legacy-backend/
+    - name: Verify build contents
+      run: |
+        ls -la ./build
+        ls -la ./build/node_modules | head -n 20
+        ls -la ./build/prisma
+
+    - name: Deploy to cPanel via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./build/
+        server-dir: /express-backend.api.tqpartner.my.id/backend-deploy/
