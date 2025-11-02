@@ -34,4 +34,4 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./build/
-          server-dir: /express-backend.api.tqpartner.my.id/backend-legacy/
+          server-dir: /express-backend.api.tqpartner.my.id/legacy-backend/
